@@ -36,7 +36,23 @@ class LogisticClassifier(object):
     # weights and biases using the keys 'W1' and 'b1' and second layer weights #
     # and biases (if any) using the keys 'W2' and 'b2'.                        #
     ############################################################################
-    pass
+    if hidden_dim is not None:
+      W1 = np.random.normal( 0.0, weight_scale, (hidden_dim,input_dim) )
+      b1 = np.zeros( (hidden_dim, ) )
+      W2 = np.random.normal(0.0, weight_scale, (1, hidden_dim))
+      b2 = np.zeros((1,))
+
+      self.params['W1'] = W1
+      self.params['b1'] = b1
+      self.params['W2'] = W2
+      self.params['b2'] = b2
+
+    else:
+      W1 = np.random.normal( 0.0, weight_scale, (1,input_dim) )
+      b1 = np.zeros( (1, ) )
+      self.params['W1'] = W1
+      self.params['b1'] = b1
+
     ############################################################################
     #                             END OF YOUR CODE                             #
     ############################################################################

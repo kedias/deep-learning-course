@@ -22,7 +22,7 @@ def fc_forward(x, w, b):
     ###########################################################################
     # TODO: Implement the forward pass. Store the result in out.              #
     ###########################################################################
-    pass
+    out = np.matmul(x,w) + b.T
     ###########################################################################
     #                             END OF YOUR CODE                            #
     ###########################################################################
@@ -51,7 +51,9 @@ def fc_backward(dout, cache):
     ###########################################################################
     # TODO: Implement the affine backward pass.                               #
     ###########################################################################
-    pass
+    dx = np.matmul( dout, w.T )
+    dw = np.matmul(x.T, dout)
+    db = np.sum(dout.T, axis = 1)
     ###########################################################################
     #                             END OF YOUR CODE                            #
     ###########################################################################
@@ -73,7 +75,7 @@ def relu_forward(x):
     ###########################################################################
     # TODO: Implement the ReLU forward pass.                                  #
     ###########################################################################
-    pass
+    out = x * (x > 0)
     ###########################################################################
     #                             END OF YOUR CODE                            #
     ###########################################################################
@@ -96,7 +98,7 @@ def relu_backward(dout, cache):
     ###########################################################################
     # TODO: Implement the ReLU backward pass.                                 #
     ###########################################################################
-    pass
+    dx = dout * (x>0)
     ###########################################################################
     #                             END OF YOUR CODE                            #
     ###########################################################################
@@ -266,7 +268,9 @@ def dropout_forward(x, dropout_param):
         # TODO: Implement training phase forward pass for inverted dropout.   #
         # Store the dropout mask in the mask variable.                        #
         #######################################################################
-        pass
+        mask = np.random.random_sample(x.shape)
+        mask = mask < p
+        out = x*mask
         #######################################################################
         #                           END OF YOUR CODE                          #
         #######################################################################
@@ -274,7 +278,7 @@ def dropout_forward(x, dropout_param):
         #######################################################################
         # TODO: Implement the test phase forward pass for inverted dropout.   #
         #######################################################################
-        pass
+        out = x
         #######################################################################
         #                            END OF YOUR CODE                         #
         #######################################################################
@@ -301,7 +305,7 @@ def dropout_backward(dout, cache):
         #######################################################################
         # TODO: Implement training phase backward pass for inverted dropout   #
         #######################################################################
-        pass
+        dx = dout * mask
         #######################################################################
         #                          END OF YOUR CODE                           #
         #######################################################################
@@ -426,6 +430,14 @@ def svm_loss(x, y):
   - dx: Gradient of the loss with respect to x
   """
 
+  temp = np.ones( x.shape ) - x * y
+
+  loss = np.mean(temp * (temp > 0))
+
+  dx = -y * (temp>0)
+
+  dx = dx / (x.shape[0])
+
   return loss, dx
 
 
@@ -440,6 +452,18 @@ def logistic_loss(x, y):
   - loss: Scalar giving the loss
   - dx: Gradient of the loss with respect to x
   """
+
+  temp = - y * x + x + np.log( 1 + np.exp( -x ) )
+
+  loss = np.mean( temp )
+
+  temp2 = np.exp(-x)
+
+  temp3 = 1. / (1. +  np.exp(-x))
+
+  dx = -y + 1. - temp2 * temp3
+
+  dx = dx/(x.shape[0])
 
   return loss, dx
 
@@ -456,5 +480,17 @@ def softmax_loss(x, y):
   - loss: Scalar giving the loss
   - dx: Gradient of the loss with respect to x
   """
+
+  x = x - np.max( x, axis=1, keepdims=True )
+
+  exp_x = np.exp(x)
+  prob_x = exp_x / np.sum(exp_x, axis=1, keepdims=True)
+  prob_x2 = -np.log(prob_x[range(x.shape[0]), y])
+  loss = np.mean(prob_x2)
+
+  dx = prob_x
+  dx[range(x.shape[0]), y] = dx[range(x.shape[0]), y] - 1.
+
+  dx = dx/(x.shape[0])
 
   return loss, dx
