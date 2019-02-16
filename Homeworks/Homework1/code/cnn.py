@@ -1,7 +1,7 @@
 import numpy as np
-
+import pickle
 from layers import *
-
+from solver import Solver
 
 class ConvNet(object):
   """
@@ -47,12 +47,23 @@ class ConvNet(object):
     # hidden affine layer, and keys 'W3' and 'b3' for the weights and biases   #
     # of the output affine layer.                                              #
     ############################################################################
-    pass
+    W1 = np.random.normal(0, weight_scale, (num_filters,input_dim[0],filter_size,filter_size))
+    b1 = np.zeros((1,num_filters,filter_size,filter_size))
+    W2 = np.random.normal(0, weight_scale, (num_filters*11*11, hidden_dim))
+    b2 = np.zeros((hidden_dim,))
+    W3 = np.random.normal(0, weight_scale, (hidden_dim, num_classes))
+    b3 = np.zeros((num_classes,))
+
+    self.params['W1'] = W1
+    self.params['W2'] = W2
+    self.params['W3'] = W3
+    self.params['b1'] = b1
+    self.params['b2'] = b2
+    self.params['b3'] = b3
     ############################################################################
     #                             END OF YOUR CODE                             #
     ############################################################################
-
-    for k, v in self.params.iteritems():
+    for k, v in self.params.items():
       self.params[k] = v.astype(dtype)
      
  
@@ -74,12 +85,23 @@ class ConvNet(object):
     pool_param = {'pool_height': 2, 'pool_width': 2, 'stride': 2}
 
     scores = None
+    cache = {}
     ############################################################################
     # TODO: Implement the forward pass for the three-layer convolutional net,  #
     # computing the class scores for X and storing them in the scores          #
     # variable.                                                                #
     ############################################################################
-    pass
+    out, cache['0'] = conv_forward(X, W1 )
+    out, cache['1'] = relu_forward(out)
+    out, cache['2'] = max_pool_forward( out, pool_param )
+    N,C,H,W = out.shape
+    out = out.reshape(N, C*H*W)
+    out, cache['3'] = fc_forward( out,W2,b2 )
+    out, cache['4'] = relu_forward(out)
+    out, cache['5'] = fc_forward(out, W3, b3)
+
+    scores = out
+
     ############################################################################
     #                             END OF YOUR CODE                             #
     ############################################################################
@@ -94,7 +116,15 @@ class ConvNet(object):
     # data loss using softmax, and make sure that grads[k] holds the gradients #
     # for self.params[k]. Don't forget to add L2 regularization!               #
     ############################################################################
-    pass
+    loss, dout = softmax_loss( scores,y )
+    dout,grads['W3'],grads['b3'] = fc_backward(dout,cache['5'])
+    dout = relu_backward( dout,cache['4'] )
+    dout, grads['W2'], grads['b2'] = fc_backward(dout, cache['3'])
+    dout = dout.reshape(N,C,H,W)
+    dout = max_pool_backward(dout,cache['2'])
+    dout = relu_backward(dout,cache['1'])
+    dout, grads['W1'] = conv_backward(dout, cache['0'])
+    grads['b1'] = 0
     ############################################################################
     #                             END OF YOUR CODE                             #
     ############################################################################
@@ -102,4 +132,30 @@ class ConvNet(object):
     return loss, grads
   
   
-pass
+
+train, valid, test = None, None,None
+with open('mnist.pkl', 'rb') as f:
+    train, valid, test = pickle.load(f, encoding='latin1')
+
+
+data = {}
+data['X_train'],data['y_train'] = train
+data['X_val'],data['y_val'] = valid
+data['X_test'],data['y_test'] = test
+data['X_train'] = data['X_train'].reshape( 50000,1,28,28 )
+data['X_val'] = data['X_val'].reshape( 10000,1,28,28 )
+data['X_test'] = data['X_test'].reshape( 10000,1,28,28 )
+
+
+model=ConvNet(input_dim= (1,28,28), num_filters=8)
+s = Solver(model, data,
+                update_rule='sgd',
+                optim_config={
+                'learning_rate': 100e-3,
+                },
+                lr_decay=0.95,
+                num_epochs=1, batch_size=20,
+                print_every=100)
+s.train()
+acc=s.check_accuracy(data['X_test'], data['y_test'],batch_size=20)
+print(acc)

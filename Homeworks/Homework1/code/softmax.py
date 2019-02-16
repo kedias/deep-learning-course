@@ -1,6 +1,7 @@
 import numpy as np
 from layers import *
-
+from solver import Solver
+import pickle
 
 class SoftmaxClassifier(object):
     """
@@ -42,7 +43,10 @@ class SoftmaxClassifier(object):
         # dictionary self.params, with fc weights                                  #
         # and biases using the keys 'W' and 'b'                                    #
         ############################################################################
-        pass
+        self.params['W1'] = np.random.normal(0, weight_scale, (input_dim, hidden_dim) )
+        self.params[ 'b1' ] = np.zeros( (hidden_dim,) )
+        self.params['W2'] = np.random.normal(0, weight_scale, (hidden_dim, num_classes))
+        self.params['b2'] = np.zeros((num_classes,))
         ############################################################################
         #                             END OF YOUR CODE                             #
         ############################################################################
@@ -72,7 +76,10 @@ class SoftmaxClassifier(object):
         # TODO: Implement the forward pass for the one-layer net, computing the    #
         # class scores for X and storing them in the scores variable.              #
         ############################################################################
-        pass
+        cache = {}
+        h, cache['0'] = fc_forward( X, self.params['W1'], self.params['b1'] )
+        hp, cache['1'] = relu_forward(h)
+        scores, cache['2'] = fc_forward( hp, self.params['W2'], self.params['b2'] )
         ############################################################################
         #                             END OF YOUR CODE                             #
         ############################################################################
@@ -92,9 +99,38 @@ class SoftmaxClassifier(object):
         # automated tests, make sure that your L2 regularization includes a factor #
         # of 0.5 to simplify the expression for the gradient.                      #
         ############################################################################
-        pass
+        loss, dout = softmax_loss( scores, y )
+        gradhp , grads[ 'W2' ], grads['b2'] = fc_backward(dout,cache['2'])
+        gradh = relu_backward( gradhp, cache['1'] )
+        gradx, grads[ 'W1' ],grads['b1'] = fc_backward( gradh, cache['0'] )
         ############################################################################
         #                             END OF YOUR CODE                             #
         ############################################################################
 
         return loss, grads
+
+
+train, valid, test = None, None,None
+with open('mnist.pkl', 'rb') as f:
+    train, valid, test = pickle.load(f, encoding='latin1')
+
+
+data = {}
+data['X_train'],data['y_train'] = train
+data['X_val'],data['y_val'] = valid
+data['X_test'],data['y_test'] = test
+print( len(data['X_test']) )
+'''
+model=SoftmaxClassifier(hidden_dim = 10)
+s = Solver(model, data,
+                update_rule='sgd',
+                optim_config={
+                'learning_rate': 100e-3,
+                },
+                lr_decay=0.95,
+                num_epochs=40, batch_size=20,
+                print_every=100)
+s.train()
+acc=s.check_accuracy(x_test,y_test,batch_size=20)
+print(acc)
+'''
