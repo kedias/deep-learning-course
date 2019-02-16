@@ -119,8 +119,7 @@ data = {}
 data['X_train'],data['y_train'] = train
 data['X_val'],data['y_val'] = valid
 data['X_test'],data['y_test'] = test
-print( len(data['X_test']) )
-'''
+
 model=SoftmaxClassifier(hidden_dim = 10)
 s = Solver(model, data,
                 update_rule='sgd',
@@ -133,4 +132,3 @@ s = Solver(model, data,
 s.train()
 acc=s.check_accuracy(x_test,y_test,batch_size=20)
 print(acc)
-'''

@@ -17,7 +17,7 @@ class ConvNet(object):
   """
   
   def __init__(self, input_dim=(1, 28, 28), num_filters=32, filter_size=7,
-               hidden_dim=100, num_classes=10, weight_scale=1e-3, reg=0.0,
+               hidden_dim=100, num_classes=10, weight_scale=1e-3, reg=0.0, pool_param = {'pool_height': 2, 'pool_width': 2, 'stride': 2},
                dtype=np.float32):
     """
     Initialize a new network.
@@ -49,7 +49,9 @@ class ConvNet(object):
     ############################################################################
     W1 = np.random.normal(0, weight_scale, (num_filters,input_dim[0],filter_size,filter_size))
     b1 = np.zeros((1,num_filters,filter_size,filter_size))
-    W2 = np.random.normal(0, weight_scale, (num_filters*11*11, hidden_dim))
+    Hn = int(np.floor(1. + (input_dim[1] - filter_size + 1 - pool_param['pool_height']) / pool_param['stride']))
+    Wn = int(np.floor(1. + (input_dim[2] - filter_size + 1 - pool_param['pool_width']) / pool_param['stride']))
+    W2 = np.random.normal(0, weight_scale, (num_filters*Hn*Wn, hidden_dim))
     b2 = np.zeros((hidden_dim,))
     W3 = np.random.normal(0, weight_scale, (hidden_dim, num_classes))
     b3 = np.zeros((num_classes,))
