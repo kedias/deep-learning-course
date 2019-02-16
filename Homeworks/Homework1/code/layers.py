@@ -1,6 +1,6 @@
 from builtins import range
 import numpy as np
-
+import scipy.signal as sc
 
 def fc_forward(x, w, b):
     """
@@ -174,7 +174,20 @@ def batchnorm_forward(x, gamma, beta, bn_param):
         # Referencing the original paper (https://arxiv.org/abs/1502.03167)   #
         # might prove to be helpful.                                          #
         #######################################################################
-        pass
+        sample_mean = np.mean(x, axis = 0)
+        sample_var = np.var(x,axis=0)
+
+        std_dev = np.sqrt(sample_var + eps)
+
+        temp_out = ( x - sample_mean )
+
+        out = gamma * temp_out/std_dev + beta
+
+        running_mean = momentum * running_mean + (1 - momentum) * sample_mean
+        running_var = momentum * running_var + (1 - momentum) * sample_var
+
+        cache = gamma, std_dev, temp_out
+
         #######################################################################
         #                           END OF YOUR CODE                          #
         #######################################################################
@@ -185,7 +198,9 @@ def batchnorm_forward(x, gamma, beta, bn_param):
         # then scale and shift the normalized data using gamma and beta.      #
         # Store the result in the out variable.                               #
         #######################################################################
-        pass
+
+        out = gamma * (x - running_mean) / np.sqrt(running_var + eps) + beta
+
         #######################################################################
         #                          END OF YOUR CODE                           #
         #######################################################################
@@ -223,7 +238,12 @@ def batchnorm_backward(dout, cache):
     # Referencing the original paper (https://arxiv.org/abs/1502.03167)       #
     # might prove to be helpful.                                              #
     ###########################################################################
-    pass
+    gamma, std_dev, temp_out = cache
+    n = dout.shape[0]
+    dx = (gamma/std_dev) * dout - gamma * np.mean( dout, axis=0 )/std_dev - gamma * temp_out * np.mean( temp_out * dout, axis=0 )/ (std_dev*std_dev*std_dev)
+
+    dgamma = np.sum( dout * temp_out, axis = 0 )
+    dbeta = np.sum(dout, axis=0)
     ###########################################################################
     #                             END OF YOUR CODE                            #
     ###########################################################################
@@ -337,7 +357,17 @@ def conv_forward(x, w):
     # TODO: Implement the convolutional forward pass.                         #
     # Hint: you can use the function np.pad for padding.                      #
     ###########################################################################
-    pass
+
+    out = np.zeros( (x.shape[0], w.shape[0], x.shape[2] - w.shape[2] + 1, x.shape[3] - w.shape[3] + 1) )
+
+    w_new=np.flip(w, axis=2)
+    w_new=np.flip(w_new, axis=3)
+
+    for n in range(0, x.shape[0]):
+        for f in range( 0, w.shape[0] ):
+            for c in range( 0, x.shape[1] ):
+                out[n,f,:,:] = out[n,f,:,:] + sc.convolve2d( x[ n,c,:,: ], w_new[ f,c,:,: ], mode='valid' )
+
     ###########################################################################
     #                             END OF YOUR CODE                            #
     ###########################################################################
@@ -359,7 +389,21 @@ def conv_backward(dout, cache):
     ###########################################################################
     # TODO: Implement the convolutional backward pass.                        #
     ###########################################################################
-    pass
+
+    x, w = cache
+
+    dx = np.zeros(x.shape)
+    dw = np.zeros(w.shape)
+
+    dout_new = np.flip(dout, axis=2)
+    dout_new = np.flip(dout_new, axis=3)
+
+    for f in range(0, w.shape[0]):
+        for c in range(0, w.shape[1]):
+            for n in range(0, x.shape[0]):
+                dx[n, c, :, :] = dx[n, c, :, :] + sc.convolve2d(w[f, c, :, :], dout[n, f, :, :], mode='full')
+                dw[f, c, :, :] = dw[f, c, :, :] + sc.convolve2d(x[n, c, :, :], dout_new[n, f, :, :], mode='valid')
+
     ###########################################################################
     #                             END OF YOUR CODE                            #
     ###########################################################################
@@ -389,7 +433,27 @@ def max_pool_forward(x, pool_param):
     ###########################################################################
     # TODO: Implement the max-pooling forward pass                            #
     ###########################################################################
-    pass
+
+    N,C,H,W = x.shape
+
+    pool_height = pool_param[ 'pool_height' ]
+    pool_width = pool_param[ 'pool_width' ]
+    stride = pool_param[ 'stride' ]
+
+    Hn = int(np.floor(1. + (H - pool_height) / stride))
+    Wn = int(np.floor(1. + (W - pool_width) / stride))
+
+    out = np.zeros( (N,C,Hn,Wn) )
+    hI = 0
+    for h in range(0, Hn):
+        wI = 0
+        for w in range( 0, Wn ):
+            for c in range( 0, C ):
+                for n in range(0,N):
+                    out[n,c,h,w] = np.max( x[ n,c, hI:hI + pool_height, wI:wI + pool_width ] )
+            wI += stride
+        hI += stride
+
     ###########################################################################
     #                             END OF YOUR CODE                            #
     ###########################################################################
@@ -412,7 +476,28 @@ def max_pool_backward(dout, cache):
     ###########################################################################
     # TODO: Implement the max-pooling backward pass                           #
     ###########################################################################
-    pass
+    x, pool_param = cache
+    N,C,H,W = x.shape
+
+    pool_height = pool_param[ 'pool_height' ]
+    pool_width = pool_param[ 'pool_width' ]
+    stride = pool_param[ 'stride' ]
+
+    Hn = int(np.floor(1. + (H - pool_height) / stride))
+    Wn = int(np.floor(1. + (W - pool_width) / stride))
+
+    dx = np.zeros(x.shape)
+    hI = 0
+    for h in range(0, Hn):
+        wI = 0
+        for w in range(0, Wn):
+            for c in range(0, C):
+                for n in range(0, N):
+                    max_index = np.argmax(x[n, c, hI:hI + pool_height, wI:wI + pool_width])
+                    dx[n,c,hI+int(np.floor(max_index/int(pool_height))), wI+max_index%int(pool_height)] += dout[n, c, h, w]
+            wI += stride
+        hI += stride
+
     ###########################################################################
     #                             END OF YOUR CODE                            #
     ###########################################################################

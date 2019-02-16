@@ -222,7 +222,7 @@ print('\nTesting svm_loss_alternative:')
 print('loss: ', loss)
 print('dx error: ', rel_error(dx_num, dx))
 
-'''
+
 
 # Batchnorm foward
 x = np.linspace(-0.1, 0.5, num=6).reshape(2, 3)
@@ -397,4 +397,3 @@ print('\nTesting max_pooling_backward function:')
 # The errors should be around 3e-12
 print('dx error: ', rel_error(dx_num, dx))
 
-'''
