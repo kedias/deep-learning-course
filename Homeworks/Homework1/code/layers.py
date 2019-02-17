@@ -242,7 +242,7 @@ def batchnorm_backward(dout, cache):
     n = dout.shape[0]
     dx = (gamma/std_dev) * dout - gamma * np.mean( dout, axis=0 )/std_dev - gamma * temp_out * np.mean( temp_out * dout, axis=0 )/ (std_dev*std_dev*std_dev)
 
-    dgamma = np.sum( dout * temp_out, axis = 0 )
+    dgamma = np.sum( dout * temp_out/std_dev, axis = 0 )
     dbeta = np.sum(dout, axis=0)
     ###########################################################################
     #                             END OF YOUR CODE                            #

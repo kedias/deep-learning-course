@@ -51,6 +51,8 @@ class ConvNet(object):
     b1 = np.zeros((1,num_filters,filter_size,filter_size))
     Hn = int(np.floor(1. + (input_dim[1] - filter_size + 1 - pool_param['pool_height']) / pool_param['stride']))
     Wn = int(np.floor(1. + (input_dim[2] - filter_size + 1 - pool_param['pool_width']) / pool_param['stride']))
+    self.params['gamma'] = np.ones( (num_filters*Hn*Wn,) )
+    self.params['beta'] = np.zeros( (num_filters*Hn*Wn,) )
     W2 = np.random.normal(0, weight_scale, (num_filters*Hn*Wn, hidden_dim))
     b2 = np.zeros((hidden_dim,))
     W3 = np.random.normal(0, weight_scale, (hidden_dim, num_classes))
@@ -78,7 +80,11 @@ class ConvNet(object):
     W1, b1 = self.params['W1'], self.params['b1']
     W2, b2 = self.params['W2'], self.params['b2']
     W3, b3 = self.params['W3'], self.params['b3']
-    
+
+    mode = 'train'
+    if y is None:
+      mode = 'test'
+
     # pass conv_param to the forward pass for the convolutional layer
     filter_size = W1.shape[2]
     conv_param = {'stride': 1, 'pad': (filter_size - 1) / 2}
@@ -93,11 +99,13 @@ class ConvNet(object):
     # computing the class scores for X and storing them in the scores          #
     # variable.                                                                #
     ############################################################################
-    out, cache['0'] = conv_forward(X, W1 )
+    out, cache['0'] = conv_forward(X, W1)
     out, cache['1'] = relu_forward(out)
     out, cache['2'] = max_pool_forward( out, pool_param )
     N,C,H,W = out.shape
     out = out.reshape(N, C*H*W)
+    out, cache['B'] = batchnorm_forward( out,self.params['gamma'],self.params['beta'], {'eps':1e-5, 'momentum':0.9, 'mode': mode} )
+    out, cache['D'] = dropout_forward(out, {'p':0.5, 'mode': mode})
     out, cache['3'] = fc_forward( out,W2,b2 )
     out, cache['4'] = relu_forward(out)
     out, cache['5'] = fc_forward(out, W3, b3)
@@ -122,6 +130,8 @@ class ConvNet(object):
     dout,grads['W3'],grads['b3'] = fc_backward(dout,cache['5'])
     dout = relu_backward( dout,cache['4'] )
     dout, grads['W2'], grads['b2'] = fc_backward(dout, cache['3'])
+    dout = dropout_backward( dout,cache['D'] )
+    dout, grads['gamma'], grads['beta'] = batchnorm_backward(dout, cache['B'])
     dout = dout.reshape(N,C,H,W)
     dout = max_pool_backward(dout,cache['2'])
     dout = relu_backward(dout,cache['1'])
@@ -149,11 +159,11 @@ data['X_val'] = data['X_val'].reshape( 10000,1,28,28 )
 data['X_test'] = data['X_test'].reshape( 10000,1,28,28 )
 
 
-model=ConvNet(input_dim= (1,28,28), num_filters=8)
+model=ConvNet(input_dim= (1,28,28), num_filters=16, hidden_dim=100, filter_size=7)
 s = Solver(model, data,
                 update_rule='sgd',
                 optim_config={
-                'learning_rate': 100e-3,
+                'learning_rate': 200e-3,
                 },
                 lr_decay=0.95,
                 num_epochs=1, batch_size=20,

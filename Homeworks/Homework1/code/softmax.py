@@ -130,5 +130,5 @@ s = Solver(model, data,
                 num_epochs=40, batch_size=20,
                 print_every=100)
 s.train()
-acc=s.check_accuracy(x_test,y_test,batch_size=20)
+acc=s.check_accuracy(data['X_test'],data['y_test'],batch_size=20)
 print(acc)
