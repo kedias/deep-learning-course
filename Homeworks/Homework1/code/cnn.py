@@ -51,8 +51,8 @@ class ConvNet(object):
     b1 = np.zeros((1,num_filters,filter_size,filter_size))
     Hn = int(np.floor(1. + (input_dim[1] - filter_size + 1 - pool_param['pool_height']) / pool_param['stride']))
     Wn = int(np.floor(1. + (input_dim[2] - filter_size + 1 - pool_param['pool_width']) / pool_param['stride']))
-    self.params['gamma'] = np.ones( (num_filters*Hn*Wn,) )
-    self.params['beta'] = np.zeros( (num_filters*Hn*Wn,) )
+#    self.params['gamma'] = np.ones( (num_filters*Hn*Wn,) )
+#    self.params['beta'] = np.zeros( (num_filters*Hn*Wn,) )
     W2 = np.random.normal(0, weight_scale, (num_filters*Hn*Wn, hidden_dim))
     b2 = np.zeros((hidden_dim,))
     W3 = np.random.normal(0, weight_scale, (hidden_dim, num_classes))
@@ -104,8 +104,8 @@ class ConvNet(object):
     out, cache['2'] = max_pool_forward( out, pool_param )
     N,C,H,W = out.shape
     out = out.reshape(N, C*H*W)
-    out, cache['B'] = batchnorm_forward( out,self.params['gamma'],self.params['beta'], {'eps':1e-5, 'momentum':0.9, 'mode': mode} )
-    out, cache['D'] = dropout_forward(out, {'p':0.5, 'mode': mode})
+#    out, cache['B'] = batchnorm_forward( out,self.params['gamma'],self.params['beta'], {'eps':1e-5, 'momentum':0.9, 'mode': mode} )
+#    out, cache['D'] = dropout_forward(out, {'p':0.5, 'mode': mode})
     out, cache['3'] = fc_forward( out,W2,b2 )
     out, cache['4'] = relu_forward(out)
     out, cache['5'] = fc_forward(out, W3, b3)
@@ -127,15 +127,21 @@ class ConvNet(object):
     # for self.params[k]. Don't forget to add L2 regularization!               #
     ############################################################################
     loss, dout = softmax_loss( scores,y )
+    loss = loss + 0.5*self.reg * np.linalg.norm(self.params['W3']) ** 2
     dout,grads['W3'],grads['b3'] = fc_backward(dout,cache['5'])
+    grads['W3'] += self.reg * self.params['W3']
     dout = relu_backward( dout,cache['4'] )
+    loss = loss + 0.5*self.reg * np.linalg.norm(self.params['W2']) ** 2
     dout, grads['W2'], grads['b2'] = fc_backward(dout, cache['3'])
-    dout = dropout_backward( dout,cache['D'] )
-    dout, grads['gamma'], grads['beta'] = batchnorm_backward(dout, cache['B'])
+    grads['W2'] += self.reg * self.params['W2']
+#    dout = dropout_backward( dout,cache['D'] )
+#    dout, grads['gamma'], grads['beta'] = batchnorm_backward(dout, cache['B'])
     dout = dout.reshape(N,C,H,W)
     dout = max_pool_backward(dout,cache['2'])
     dout = relu_backward(dout,cache['1'])
+    loss = loss + 0.5*self.reg * np.linalg.norm(self.params['W1']) ** 2
     dout, grads['W1'] = conv_backward(dout, cache['0'])
+    grads['W1'] += self.reg * self.params['W1']
     grads['b1'] = 0
     ############################################################################
     #                             END OF YOUR CODE                             #
@@ -154,12 +160,13 @@ data = {}
 data['X_train'],data['y_train'] = train
 data['X_val'],data['y_val'] = valid
 data['X_test'],data['y_test'] = test
-data['X_train'] = data['X_train'].reshape( 50000,1,28,28 )
-data['X_val'] = data['X_val'].reshape( 10000,1,28,28 )
-data['X_test'] = data['X_test'].reshape( 10000,1,28,28 )
+print(len(data['X_train']))
+data['X_train'] = data['X_train'].reshape( len(data['X_train']),1,28,28 )
+data['X_val'] = data['X_val'].reshape( len(data['X_val']),1,28,28 )
+data['X_test'] = data['X_test'].reshape( len(data['X_test']),1,28,28 )
 
 
-model=ConvNet(input_dim= (1,28,28), num_filters=16, hidden_dim=100, filter_size=7)
+model=ConvNet(input_dim= (1,28,28), num_filters=8, hidden_dim=100, filter_size=9)
 s = Solver(model, data,
                 update_rule='sgd',
                 optim_config={

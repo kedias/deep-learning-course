@@ -43,10 +43,18 @@ class SoftmaxClassifier(object):
         # dictionary self.params, with fc weights                                  #
         # and biases using the keys 'W' and 'b'                                    #
         ############################################################################
-        self.params['W1'] = np.random.normal(0, weight_scale, (input_dim, hidden_dim) )
-        self.params[ 'b1' ] = np.zeros( (hidden_dim,) )
-        self.params['W2'] = np.random.normal(0, weight_scale, (hidden_dim, num_classes))
-        self.params['b2'] = np.zeros((num_classes,))
+        if hidden_dim is not None:
+            self.params['W1'] = np.random.normal(0, weight_scale, (input_dim, hidden_dim) )
+            self.params['b1'] = np.zeros( (hidden_dim,) )
+            self.params['W2'] = np.random.normal(0, weight_scale, (hidden_dim, num_classes))
+            self.params['b2'] = np.zeros((num_classes,))
+
+
+
+        else:
+            self.params['W1'] = np.random.normal(0, weight_scale, (input_dim, num_classes))
+            self.params['b1'] = np.zeros((num_classes,))
+
         ############################################################################
         #                             END OF YOUR CODE                             #
         ############################################################################
@@ -77,9 +85,11 @@ class SoftmaxClassifier(object):
         # class scores for X and storing them in the scores variable.              #
         ############################################################################
         cache = {}
-        h, cache['0'] = fc_forward( X, self.params['W1'], self.params['b1'] )
-        hp, cache['1'] = relu_forward(h)
-        scores, cache['2'] = fc_forward( hp, self.params['W2'], self.params['b2'] )
+        out, cache['0'] = fc_forward( X, self.params['W1'], self.params['b1'] )
+        if 'W2' in self.params:
+            out, cache['1'] = relu_forward(out)
+            out, cache['2'] = fc_forward( out, self.params['W2'], self.params['b2'] )
+        scores = out
         ############################################################################
         #                             END OF YOUR CODE                             #
         ############################################################################
@@ -100,9 +110,14 @@ class SoftmaxClassifier(object):
         # of 0.5 to simplify the expression for the gradient.                      #
         ############################################################################
         loss, dout = softmax_loss( scores, y )
-        gradhp , grads[ 'W2' ], grads['b2'] = fc_backward(dout,cache['2'])
-        gradh = relu_backward( gradhp, cache['1'] )
-        gradx, grads[ 'W1' ],grads['b1'] = fc_backward( gradh, cache['0'] )
+        if 'W2' in self.params:
+            loss = loss + 0.5 * self.reg * np.linalg.norm(self.params['W2']) ** 2
+            dout, grads[ 'W2' ], grads['b2'] = fc_backward(dout,cache['2'])
+            dout = relu_backward( dout, cache['1'] )
+            grads['W2'] += self.reg * self.params['W2']
+        loss = loss + 0.5 * self.reg * np.linalg.norm(self.params['W1']) ** 2
+        gradx, grads[ 'W1' ],grads['b1'] = fc_backward( dout, cache['0'] )
+        grads['W1'] += self.reg * self.params['W1']
         ############################################################################
         #                             END OF YOUR CODE                             #
         ############################################################################
@@ -120,14 +135,14 @@ data['X_train'],data['y_train'] = train
 data['X_val'],data['y_val'] = valid
 data['X_test'],data['y_test'] = test
 
-model=SoftmaxClassifier(hidden_dim = 10)
+model=SoftmaxClassifier(hidden_dim = 100, reg=0.005)
 s = Solver(model, data,
                 update_rule='sgd',
                 optim_config={
                 'learning_rate': 100e-3,
                 },
                 lr_decay=0.95,
-                num_epochs=40, batch_size=20,
+                num_epochs=10, batch_size=20,
                 print_every=100)
 s.train()
 acc=s.check_accuracy(data['X_test'],data['y_test'],batch_size=20)

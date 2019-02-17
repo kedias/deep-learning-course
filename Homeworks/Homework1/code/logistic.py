@@ -117,7 +117,7 @@ class LogisticClassifier(object):
       dout = relu_backward(dout,cache['R'])
       grads['W2'] += self.reg*self.params['W2']
 
-    loss = loss + self.reg * np.linalg.norm(self.params['W1']) ** 2
+    loss = loss + 0.5*self.reg * np.linalg.norm(self.params['W1']) ** 2
     dout, grads['W1'], grads['b1'] = fc_backward(dout, cache['1'])
     grads['W1'] += self.reg * self.params['W1']
     ############################################################################
