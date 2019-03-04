@@ -11,6 +11,7 @@ import os
 import copy
 
 def train_model(device, dataloaders, dataset_sizes, model, criterion, optimizer, scheduler, num_epochs=25):
+    model.cuda()
     since = time.time()
    
     best_model_wts = copy.deepcopy(model.state_dict())
@@ -68,10 +69,13 @@ def train_model(device, dataloaders, dataset_sizes, model, criterion, optimizer,
                 # Perform feedforward operation using model, get the labels using torch.max, and   #
                 # compule loss using the criterion function                                        #
                 ####################################################################################
-            
-
-                # backward + optimize only if in training phase
-
+                    outputs = model.forward(inputs)
+                    _, preds = torch.max(outputs.data, 1)
+                    loss = criterion(outputs, labels)
+                    # backward + optimize only if in training phase
+                    if phase == 'train':
+                        loss.backward()
+                        optimizer.step()
 
                 ####################################################################################
                 #                             END OF YOUR CODE                                     #
@@ -132,7 +136,8 @@ def visualize_model(device, dataloaders, model, class_names, num_images=6):
             ####################################################################################
             # Perform feedforward operation using model and get the labels using torch.max     #
             ####################################################################################
-            
+            outputs = model(inputs)
+            _, preds = torch.max(outputs.data, 1)
 
             ####################################################################################
             #                             END OF YOUR CODE                                     #
@@ -159,7 +164,8 @@ def finetune(device, dataloaders, dataset_sizes, class_names):
     ####################################################################################
     # Replace last layer in with a 2-label linear layer                                #
     ####################################################################################
-    
+
+    model_ft.fc = nn.Linear(model_ft.fc.in_features, 2)
 
     ####################################################################################
     #                             END OF YOUR CODE                                     #
@@ -171,9 +177,8 @@ def finetune(device, dataloaders, dataset_sizes, class_names):
     ####################################################################################
     # Set the criterion function for multi-class classification, and set the optimizer #
     ####################################################################################
-
-
-
+    criterion = nn.CrossEntropyLoss()
+    optimizer_ft = optim.Adam(model_ft.parameters(), lr=0.01)
     ####################################################################################
     #                             END OF YOUR CODE                                     #
     ####################################################################################
@@ -183,7 +188,7 @@ def finetune(device, dataloaders, dataset_sizes, class_names):
 
     # Show the performance with the pretrained-model, not finetuned yet
     print('Performance of pre-trained model without finetuning')
-    _ = train_model(device, dataloaders, dataset_sizes, model_ft, criterion, optimizer_ft, exp_lr_scheduler, num_epochs=0)
+    #_ = train_model(device, dataloaders, dataset_sizes, model_ft, criterion, optimizer_ft, exp_lr_scheduler, num_epochs=0)
 
     # Finetune the model for 25 epoches
     print('Finetune the model')
@@ -200,8 +205,8 @@ def freeze(device, dataloaders, dataset_sizes, class_names):
     # Freeze all parameterws in the pre-trained network.                               #
     # Hint: go over all parameters and set requires_grad to False                      #
     ####################################################################################
-    
-
+    for param in model_conv.parameters():
+        param.requires_grad = False
     ####################################################################################
     #                             END OF YOUR CODE                                     #
     ####################################################################################
@@ -213,8 +218,9 @@ def freeze(device, dataloaders, dataset_sizes, class_names):
     # Replace last layer in with a 2-label linear layer                                #
     ####################################################################################
     # Parameters of newly constructed modules have requires_grad=True by default
-    
-
+    model_conv.fc = nn.Linear(model_conv.fc.in_features, 2)
+    for param in model_conv.fc.parameters():
+        param.requires_grad = True
     ####################################################################################
     #                             END OF YOUR CODE                                     #
     ####################################################################################
@@ -226,9 +232,8 @@ def freeze(device, dataloaders, dataset_sizes, class_names):
     # Set the criterion function for multi-class classification, and set the optimizer.#
     # Note: Make sure that the optimizer only updates the parameters of the last layer #
     ####################################################################################
-
-    
-
+    criterion = nn.CrossEntropyLoss()
+    optimizer_conv = optim.Adam(model_conv.fc.parameters(), lr=0.01)
     ####################################################################################
     #                             END OF YOUR CODE                                     #
     ####################################################################################
@@ -270,8 +275,7 @@ def main():
     dataset_sizes = {x: len(image_datasets[x]) for x in ['train', 'val']}
     class_names = image_datasets['train'].classes
 
-    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print("Finetune the pre-trained model")
     finetune(device, dataloaders, dataset_sizes, class_names)
     print("Freeze the parameters in pre-trained model and train the final fc layer")

@@ -81,7 +81,8 @@ def content_loss(content_weight, content_current, content_target):
     Returns:
     - scalar content loss
     """
-    
+    difference = content_current - content_target
+    return content_weight * torch.sum(difference*difference)
 
 
 def gram_matrix(features, normalize=True):
@@ -127,8 +128,10 @@ def style_loss(feats, style_layers, style_targets, style_weights):
     """
     # Hint: you can do this with one for loop over the style layers, and should
     # not be very much code (~5 lines). You will need to use your gram_matrix function.
-
-
+    loss = 0
+    for i in range(len(style_layers)):
+        loss += style_weights[i] * torch.sum( (style_targets[i] - gram_matrix(feats[style_layers[i]]))**2 )
+    return loss
 
 def tv_loss(img, tv_weight):
     """
@@ -143,7 +146,13 @@ def tv_loss(img, tv_weight):
       for img weighted by tv_weight.
     """
     # Your implementation should be vectorized and not require any loops!
-
+    shifted_img1 = img[:,:,:,:-1]
+    shifted_img2 = img[:, :, :, 1:]
+    shifted_img3 = img[:,:,:-1,:]
+    shifted_img4 = img[:, :, 1:, :]
+    lossTerm1 = (shifted_img1 - shifted_img2)**2
+    lossTerm2 = (shifted_img3 - shifted_img4)**2
+    return tv_weight*( torch.sum( lossTerm1 ) + torch.sum(lossTerm2) )
 
 
 def style_transfer(content_image, style_image, image_size, style_size, content_layer, content_weight,
@@ -166,7 +175,7 @@ def style_transfer(content_image, style_image, image_size, style_size, content_l
 
     dtype = torch.FloatTensor
     # Uncomment out the following line if you're on a machine with a GPU set up for PyTorch!
-    # dtype = torch.cuda.FloatTensor
+    dtype = torch.cuda.FloatTensor
 
     # Load the pre-trained SqueezeNet model.
     cnn = torchvision.models.squeezenet1_1(pretrained=True).features
@@ -217,16 +226,15 @@ def style_transfer(content_image, style_image, image_size, style_size, content_l
     axarr[0].imshow(deprocess(content_img.cpu()))
     axarr[1].imshow(deprocess(style_img.cpu()))
     plt.show()
-    plt.figure()
-    
+    #plt.figure()
     for t in range(200):
         if t < 190:
             img.clamp_(-1.5, 1.5)
         optimizer.zero_grad()
-
         feats = extract_features(img_var, cnn)
-        
         #TODO:Compute loss
+        loss = style_loss(feats, style_layers, style_targets, style_weights) + content_loss(content_weight, feats[content_layer],content_target) + tv_loss(img_var, tv_weight)
+        loss.backward()
 
 
 
@@ -260,7 +268,7 @@ def main():
         'tv_weight' : 5e-2
     }
 
-    style_transfer(**params1)
+    #style_transfer(**params1)
 
     # Scream + Tubingen
     params2 = {
@@ -275,7 +283,7 @@ def main():
         'tv_weight':2e-2
     }
 
-    style_transfer(**params2)
+    #style_transfer(**params2)
 
     # Starry Night + Tubingen
     params3 = {
